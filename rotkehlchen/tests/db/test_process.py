@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-from unittest.mock import patch
 from rotkehlchen.db.dbhandler import DBHandler
 from rotkehlchen.types import ExternalService, ExternalServiceApiCredentials
 
@@ -32,4 +31,3 @@ def test_connection(database: DBHandler):
     with database.conn.read_ctx() as cursor:
         cursor.execute('SELECT COUNT(*) FROM external_service_credentials')
         assert cursor.fetchone()[0] == 8
-        

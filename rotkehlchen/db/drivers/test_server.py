@@ -1,6 +1,7 @@
 import multiprocessing
 import sqlite3
-from multiprocessing.managers import BaseManager, BaseProxy
+from multiprocessing.managers import BaseManager
+
 
 class Server(multiprocessing.Process):
     def __init__(self, host, port):
@@ -37,7 +38,7 @@ class Server(multiprocessing.Process):
         manager.register('execute', execute)
         manager.register('executemany', executemany)
 
-        print(f"Server listening on {self.host}:{self.port}")
+        print(f'Server listening on {self.host}:{self.port}')
 
         while True:
             conn = manager.connect()
@@ -59,9 +60,10 @@ class Server(multiprocessing.Process):
                     break
             conn.close()
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     # Create a server process
-    server = Server("localhost", 8080)
+    server = Server('localhost', 8080)
     server.start()
 
     # Wait for the process to finish

@@ -1,6 +1,6 @@
 import json
 import logging
-from multiprocessing import Process, log_to_stderr
+from multiprocessing import log_to_stderr
 import multiprocessing
 import os
 import re
@@ -13,9 +13,7 @@ from pathlib import Path
 import time
 from typing import Any, Literal, Optional, Unpack, cast, overload
 
-import gevent
 from gevent.lock import Semaphore
-import gevent.monkey
 from pysqlcipher3 import dbapi2 as sqlcipher
 
 from rotkehlchen.accounting.structures.balance import BalanceType
@@ -199,6 +197,7 @@ def spawn_server():
         with open('/Users/yabirgb/logs.txt', 'w') as f:
             f.write(str(e))
 
+
 class DBHandler:
     def __init__(
             self,
@@ -345,7 +344,8 @@ class DBHandler:
     def _connect_writer_server(self) -> None:
         writer_address = ('127.0.0.1', 50000)
         authkey = b'123'
-        ctx = multiprocessing.get_context('spawn')
+        ctx = multiprocessing.get_context('fork')
+        multiprocessing.freeze_support()
         log_to_stderr(logging.DEBUG)
         p = ctx.Process(target=spawn_server, daemon=True)
         p.start()

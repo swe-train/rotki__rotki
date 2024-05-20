@@ -1,10 +1,10 @@
 from contextlib import contextmanager
 from multiprocessing.managers import BaseManager
-import time
+
 
 # Manager
 class Client(BaseManager):
-    
+
     @contextmanager
     def write_cursor(self):
         lock = self.get_lock()
@@ -26,7 +26,7 @@ Client.register('executemany')
 Client.register('get_conn')
 Client.register('get_lock')
 Client.register('set_db')
-    
+
 
 if __name__ == '__main__':
     ...

@@ -1,7 +1,5 @@
-from contextlib import contextmanager
-from multiprocessing.managers import BaseManager, BaseProxy, SyncManager
+from multiprocessing.managers import SyncManager
 from multiprocessing import Lock
-import sqlite3
 from pysqlcipher3 import dbapi2 as sqlcipher
 
 
@@ -31,10 +29,11 @@ class SQLiteManager(SyncManager):
 
         self.cursor = self.conn.cursor()
         return self.execute_lock
-    
+
     def set_db(self, db_path):
         self.conn = sqlcipher.connect(db_path, check_same_thread=False)
         self.cursor = self.conn.cursor()
+
 
 if __name__ == '__main__':
     ...
@@ -46,7 +45,7 @@ if __name__ == '__main__':
     # import threading
     # print(threading.get_native_id())
 
-    # cur = server.conn.cursor() 
+    # cur = server.conn.cursor()
     # cur.execute('CREATE TABLE IF NOT EXISTS test_table(value INTEGER)')
 
     # server.get_server().serve_forever()

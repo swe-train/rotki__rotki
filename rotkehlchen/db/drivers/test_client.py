@@ -1,6 +1,7 @@
 import multiprocessing
 from multiprocessing.managers import BaseManager
 
+
 class Client(multiprocessing.Process):
     def __init__(self, host, port):
         super().__init__()
@@ -21,9 +22,10 @@ class Client(multiprocessing.Process):
         results = manager.executemany('INSERT INTO table_name VALUES (?, ?)', params)
         print(results)
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     # Create a client process
-    client = Client("localhost", 8080)
+    client = Client('localhost', 8080)
     client.start()
 
     # Wait for the process to finish
