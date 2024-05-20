@@ -1,13 +1,14 @@
-from gevent import monkey, queue  # isort:skip # noqa
-monkey.patch_all()  # isort:skip # noqa
-from urllib3.connectionpool import ConnectionPool
-# Try to see if we will see no more deadlocks with this
-# https://github.com/gevent/gevent/issues/1957#issuecomment-1902072588
-ConnectionPool.QueueCls = queue.LifoQueue
+if __name__ == '__main__':
+    from gevent import monkey, queue  # isort:skip # noqa
+    monkey.patch_all(socket=False)  # isort:skip # noqa
+    from urllib3.connectionpool import ConnectionPool
+    # Try to see if we will see no more deadlocks with this
+    # https://github.com/gevent/gevent/issues/1957#issuecomment-1902072588
+    ConnectionPool.QueueCls = queue.LifoQueue
 
-import sys
+    import sys
 
-import pytest
+    import pytest
 
-exit_code = pytest.main()
-sys.exit(exit_code)
+    exit_code = pytest.main()
+    sys.exit(exit_code)

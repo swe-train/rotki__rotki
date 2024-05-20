@@ -16,6 +16,7 @@ import gevent
 from pysqlcipher3 import dbapi2 as sqlcipher
 
 from rotkehlchen.db.checks import sanity_check_impl
+from rotkehlchen.db.drivers.client import Client
 from rotkehlchen.db.minimized_schema import MINIMIZED_USER_DB_SCHEMA
 from rotkehlchen.globaldb.minimized_schema import MINIMIZED_GLOBAL_DB_SCHEMA
 from rotkehlchen.greenlets.utils import get_greenlet_name
@@ -272,6 +273,8 @@ class DBConnection:
         elif connection_type == DBConnectionType.GLOBAL:
             self.minimized_schema = MINIMIZED_GLOBAL_DB_SCHEMA
 
+        self.writer_client: Client | None = None
+
     def execute(self, statement: str, *bindings: Sequence) -> DBCursor:
         if __debug__:
             logger.trace(f'DB CONNECTION EXECUTE {statement}')
@@ -336,6 +339,21 @@ class DBConnection:
 
     @contextmanager
     def write_ctx(self, commit_ts: bool = False) -> Generator['DBCursor', None, None]:
+        print(self.connection_type, self.writer_client)
+        if (
+            self.connection_type != DBConnectionType.USER or
+            self.writer_client is None
+        ):
+            with self.gevent_write_ctx(commit_ts=commit_ts) as write_cursor:
+                yield write_cursor
+        else:
+            with self.writer_client.write_cursor() as write_cursor:
+                yield write_cursor
+
+        return
+
+    @contextmanager
+    def gevent_write_ctx(self, commit_ts: bool = False) -> Generator['DBCursor', None, None]:
         """Opens a transaction to the database. This should be used kept open for
         as little time as possible.
 

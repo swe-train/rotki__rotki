@@ -1,6 +1,6 @@
 import json
 import logging
-from multiprocessing import Process
+from multiprocessing import Process, log_to_stderr
 import multiprocessing
 import os
 import re
@@ -13,7 +13,9 @@ from pathlib import Path
 import time
 from typing import Any, Literal, Optional, Unpack, cast, overload
 
+import gevent
 from gevent.lock import Semaphore
+import gevent.monkey
 from pysqlcipher3 import dbapi2 as sqlcipher
 
 from rotkehlchen.accounting.structures.balance import BalanceType
@@ -183,14 +185,19 @@ DB_BACKUP_RE = re.compile(r'(\d+)_rotkehlchen_db_v(\d+).backup')
 # http://www.sql-join.com/sql-join-types
 
 def spawn_server():
-    writer_address = ('127.0.0.1', 50000)
-    authkey = b'123'
-    server = SQLiteManager(address=writer_address, authkey=authkey)
-    server.register('execute', server.execute)
-    server.register('get_conn', server.get_conn)
-    server.register('get_lock', server.get_lock)
-    server.get_server().serve_forever()
-
+    try:
+        writer_address = ('127.0.0.1', 50000)
+        authkey = b'123'
+        server = SQLiteManager(address=writer_address, authkey=authkey)
+        server.register('execute', server.execute)
+        server.register('executemany', server.executemany)
+        server.register('get_conn', server.get_conn)
+        server.register('get_lock', server.get_lock)
+        server.register('set_db', server.set_db)
+        server.get_server().serve_forever()
+    except Exception as e:
+        with open('/Users/yabirgb/logs.txt', 'w') as f:
+            f.write(str(e))
 
 class DBHandler:
     def __init__(
@@ -240,6 +247,8 @@ class DBHandler:
                 self.set_settings(cursor, initial_settings)
             self.update_owned_assets_in_globaldb(cursor)
             self.sync_globaldb_assets(cursor)
+
+        self._connect_writer_server()
 
     def _check_unfinished_upgrades(self, resume_from_backup: bool) -> None:
         """
@@ -333,26 +342,36 @@ class DBHandler:
                     ),
                 )
 
-    def _connect_writer_server(self, password: str) -> None:
+    def _connect_writer_server(self) -> None:
         writer_address = ('127.0.0.1', 50000)
         authkey = b'123'
         ctx = multiprocessing.get_context('spawn')
-        p = ctx.Process(target=spawn_server)
+        log_to_stderr(logging.DEBUG)
+        p = ctx.Process(target=spawn_server, daemon=True)
         p.start()
         self.writer_server = p
-        tries = 1
-        while tries < 3:
+        tries, max_tries = 1, 5
+        self.conn.writer_client = Client(address=writer_address, authkey=authkey)
+        while tries < max_tries:
             try:
-                self.writer_client = Client(address=writer_address, authkey=authkey)
-                self.writer_client.connect()
+                self.conn.writer_client.connect()
+                self.conn.writer_client.set_db(str(self.user_data_dir / USERDB_NAME))
                 password_for_sqlcipher = protect_password_sqlcipher(self.password)
-                self.writer_client.execute(f'PRAGMA key="{password_for_sqlcipher}";')
-                self.writer_client.get_conn().commit()
+                self.conn.writer_client.execute(f'PRAGMA key="{password_for_sqlcipher}";')
+                self.conn.writer_client.get_conn().commit()
+                print('connnnnnnn')
             except Exception as e:
+                print(f'Error setting up connection: {e}')
                 tries += 1
-                if tries > 3:
-                    p.kill()
+                time.sleep(0.5)
+                if tries > max_tries:
+                    self.writer_server.kill()
                     raise
+                continue
+            else:
+                break
+
+        assert self.conn.writer_client.get_conn()
         log.info('Writer server spawned')
 
     def _run_actions_after_first_connection(self) -> None:
@@ -540,9 +559,6 @@ class DBHandler:
             raise AuthenticationError(
                 'Wrong password or invalid/corrupt database for user',
             ) from e
-        
-        if conn_attribute == 'conn':
-            self._connect_writer_server(password=self.password)
 
         setattr(self, conn_attribute, conn)
 
